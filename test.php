@@ -64,6 +64,16 @@ foreach ($tdata as $td) {
 	echo "<br/>";
 }
 
+echo "build_key_pair()<br/>";
+$seed = 'bachelor garden grit error awake depend nice result worth when ugly point uphold zoo seven';
+echo "seed: ($seed)<br>";
+$wa = new waves_auth;
+$kp = $wa->build_key_pair($seed);
+echo "private key: ". $kp['privateKey'] . "<br/>";
+echo "public key: ". $kp['publicKey'] . "<br/>";
+$ad = $wa->get_address($kp['publicKey']);
+echo 'address: ' .  $ad . '<br/><br/>';
+
 // Test blake2b with predefined vectors
 $handle = fopen("blake2b-kat.txt", "r");
 
