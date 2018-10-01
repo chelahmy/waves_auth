@@ -59,6 +59,33 @@ class waves_auth {
 		return $k->digest($bout);
 	}
 
+	protected function build_seed_hash($seedBytes) {
+		$nonce = array_fill(0, 4, 0); // INITIAL_NONCE = 0
+		$seedBytesWithNonce = array_merge($nonce, $seedBytes);
+		$seedHash = $this->hash_chain($seedBytesWithNonce);
+		$shstr = implode('', array_map(function($v){return chr($v);}, $seedHash));
+		return hex2bytes(hash("sha256", $shstr));
+	}
+
+	// Build the private & public key pair from the seed string.
+	public function build_key_pair($seed) {
+
+		if (!is_string($seed)) {
+			throw new Exception('Missing or invalid seed phrase');
+		}
+
+		$seedBytes = str2bytes($seed);
+		$seedHash = $this->build_seed_hash($seedBytes);
+		$a = new axlsign;
+		$keys = $a->generateKeyPair($seedHash);
+		$b58 = new base58;
+		
+		return array(
+			'privateKey' => $b58->encode($keys['private']),
+			'publicKey' => $b58->encode($keys['public'])
+		);
+	}
+
 	// Check the validity of the Waves address.
 	public function is_valid_address($address) {
 
