@@ -90,6 +90,15 @@ function LShift($a, $b) {
 function Inv($a) {
 	return ~$a &  0xFFFFFFFF;
 }
+
+function uint32ToBytes($val) {
+	$b = array();
+	$b[0] = uRShift($val, 6) & 0xFF;
+	$b[1] = uRShift($val, 4) & 0xFF;
+	$b[2] = uRShift($val, 2) & 0xFF;
+	$b[3] = $val & 0xFF;
+	return $b;
+}
 	
 
 
