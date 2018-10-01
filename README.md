@@ -1,5 +1,5 @@
 # waves_auth
-[Waves Auth API](https://docs.wavesplatform.com/en/development-and-api/client-api/auth-api.html) Verification Handler 
+[Waves Auth API](https://docs.wavesplatform.com/en/development-and-api/client-api/auth-api.html) Verification Handler and Key-pair Generation from Seed
 
 This module handles the response from the Wave Auth API's call. The Waves Auth API is simply REST. However, the response verification requires **curve25519**, **blake2b** and **keccak** hashing algorithms which Waves implemented in Typescript and few other languages but not PHP. This PHP module was manually converted from the 32-bit based Typescript implementations.
 
@@ -9,7 +9,7 @@ Verification steps:
 3. The *address* itself needs to be checked for validity. Use **waves_auth::is_valid_address()**.
 4. The *address* may need to be verified that it exists in the blockchain. (Not part of this module. Please refer to the Waves API)
 
-## Example
+## Verification Example
 ~~~php
 require_once('waves_auth.php');
 
@@ -35,4 +35,21 @@ if ($wa->get_address($puk) === $addr)
   echo "OK: The public key and the address are matched<br/>";
 else
   echo "Not OK: The public key and the address are NOT matched<br/>";
+~~~
+
+## Key-pair Generation Example
+~~~php
+$seed = 'bachelor garden grit error awake depend nice result worth when ugly point uphold zoo seven';
+echo "seed: ($seed)<br>";
+
+$wa = new waves_auth;
+
+$kp = $wa->build_key_pair($seed);
+
+echo "private key: ". $kp['privateKey'] . "<br/>";
+echo "public key: ". $kp['publicKey'] . "<br/>";
+
+$ad = $wa->get_address($kp['publicKey']);
+
+echo 'address: ' .  $ad . '<br/><br/>';
 ~~~
