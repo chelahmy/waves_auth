@@ -14,6 +14,12 @@ class axlsign {
 		if (is_array($init)) for ($i = 0; $i < count($init); $i++) $r[$i] = $init[$i];
 		return $r;
 	}
+	
+	protected function _9() {
+		$a = array_fill(0, 32, 0);
+		$a[0] = 9;
+		return $a;
+	}
 
 	protected function gf0() {
 		return $this->gf();
@@ -21,6 +27,10 @@ class axlsign {
 
 	protected function gf1() {
 		return $this->gf([1]);
+	}
+
+	protected function _121665() {
+		return $this->gf([0xdb41, 1]);
 	}
 
 	protected function D() {
@@ -529,42 +539,61 @@ class axlsign {
 		for ($a = 0; $a < 16; $a++) $o[$a] = $c[$a];
 	}
 
-	protected function unpackneg(&$r, $p) {
-		$t = $this->gf(); $chk = $this->gf(); $num = $this->gf();
-		$den = $this->gf(); $den2 = $this->gf(); $den4 = $this->gf();
-		$den6 = $this->gf();
-
-		$this->set25519($r[2], $this->gf1());
-		$this->unpack25519($r[1], $p);
-		$this->S($num, $r[1]);
-		$this->M($den, $num, $this->D());
-		$this->Z($num, $num, $r[2]);
-		$this->A($den, $r[2], $den);
-
-		$this->S($den2, $den);
-		$this->S($den4, $den2);
-		$this->M($den6, $den4, $den2);
-		$this->M($t, $den6, $num);
-		$this->M($t, $t, $den);
-
-		$this->pow2523($t, $t);
-		$this->M($t, $t, $num);
-		$this->M($t, $t, $den);
-		$this->M($t, $t, $den);
-		$this->M($r[0], $t, $den);
-
-		$this->S($chk, $r[0]);
-		$this->M($chk, $chk, $den);
-		if ($this->neq25519($chk, $num)) $this->M($r[0], $r[0], $this->I());
-
-		$this->S($chk, $r[0]);
-		$this->M($chk, $chk, $den);
-		if ($this->neq25519($chk, $num)) return -1;
-
-		if ($this->par25519($r[0]) === ($p[31]>>7)) $this->Z($r[0], $this->gf0(), $r[0]);
-
-		$this->M($r[3], $r[0], $r[1]);
+	protected function crypto_scalarmult(&$q, $n, $p) {
+		$z = array_fill(0, 32, 0);
+		$x = array_fill(0, 80, 0);
+		$a = $this->gf(); $b = $this->gf(); $c = $this->gf();
+		$d = $this->gf(); $e = $this->gf(); $f = $this->gf();
+		for ($i = 0; $i < 31; $i++) $z[$i] = $n[$i];
+		$z[31]=($n[31]&127)|64;
+		$z[0]&=248;
+		$this->unpack25519($x,$p);
+		for ($i = 0; $i < 16; $i++) {
+			$b[$i]=$x[$i];
+			$d[$i]=$a[$i]=$c[$i]=0;
+		}
+		$a[0]=$d[0]=1;
+		for ($i=254; $i>=0; --$i) {
+			$r=(uRShift($z[uRShift($i,3)],($i&7)))&1;
+			$this->sel25519($a,$b,$r);
+			$this->sel25519($c,$d,$r);
+			$this->A($e,$a,$c);
+			$this->Z($a,$a,$c);
+			$this->A($c,$b,$d);
+			$this->Z($b,$b,$d);
+			$this->S($d,$e);
+			$this->S($f,$a);
+			$this->M($a,$c,$a);
+			$this->M($c,$b,$e);
+			$this->A($e,$a,$c);
+			$this->Z($a,$a,$c);
+			$this->S($b,$a);
+			$this->Z($c,$d,$f);
+			$this->M($a,$c,$this->_121665());
+			$this->A($a,$a,$d);
+			$this->M($c,$c,$a);
+			$this->M($a,$d,$f);
+			$this->M($d,$b,$x);
+			$this->S($b,$e);
+			$this->sel25519($a,$b,$r);
+			$this->sel25519($c,$d,$r);
+		}
+		for ($i = 0; $i < 16; $i++) {
+			$x[$i+16]=$a[$i];
+			$x[$i+32]=$c[$i];
+			$x[$i+48]=$b[$i];
+			$x[$i+64]=$d[$i];
+		}
+		$x32 = array_slice($x, 32);
+		$x16 = array_slice($x, 16);
+		$this->inv25519($x32,$x32);
+		$this->M($x16,$x16,$x32);
+		$this->pack25519($q,$x16);
 		return 0;
+	}
+
+	protected function crypto_scalarmult_base(&$q, $n) {
+		return crypto_scalarmult($q, $n, $this->_9());
 	}
 
 	protected $K = array(
@@ -1124,6 +1153,44 @@ class axlsign {
 		$this->modL($r, $x);
 	}
 
+	protected function unpackneg(&$r, $p) {
+		$t = $this->gf(); $chk = $this->gf(); $num = $this->gf();
+		$den = $this->gf(); $den2 = $this->gf(); $den4 = $this->gf();
+		$den6 = $this->gf();
+
+		$this->set25519($r[2], $this->gf1());
+		$this->unpack25519($r[1], $p);
+		$this->S($num, $r[1]);
+		$this->M($den, $num, $this->D());
+		$this->Z($num, $num, $r[2]);
+		$this->A($den, $r[2], $den);
+
+		$this->S($den2, $den);
+		$this->S($den4, $den2);
+		$this->M($den6, $den4, $den2);
+		$this->M($t, $den6, $num);
+		$this->M($t, $t, $den);
+
+		$this->pow2523($t, $t);
+		$this->M($t, $t, $num);
+		$this->M($t, $t, $den);
+		$this->M($t, $t, $den);
+		$this->M($r[0], $t, $den);
+
+		$this->S($chk, $r[0]);
+		$this->M($chk, $chk, $den);
+		if ($this->neq25519($chk, $num)) $this->M($r[0], $r[0], $this->I());
+
+		$this->S($chk, $r[0]);
+		$this->M($chk, $chk, $den);
+		if ($this->neq25519($chk, $num)) return -1;
+
+		if ($this->par25519($r[0]) === ($p[31]>>7)) $this->Z($r[0], $this->gf0(), $r[0]);
+
+		$this->M($r[3], $r[0], $r[1]);
+		return 0;
+	}
+
 	protected function crypto_sign_open(&$m, $sm, $n, $pk) {
 		$t = array_fill(0, 32, 0); $h = array_fill(0, 64, 0);
 		$p = [$this->gf(), $this->gf(), $this->gf(), $this->gf()];
@@ -1191,7 +1258,7 @@ class axlsign {
 			if (!is_array($arg)) throw new Exception('expecting an array');
 	}
 	
-	function openMessage($publicKey, $signedMsg) {
+	public function openMessage($publicKey, $signedMsg) {
 	
 		$this->checkArrayTypes($signedMsg, $publicKey);
 		
@@ -1209,7 +1276,7 @@ class axlsign {
 		return $m;
 	}	
 	
-	function verify($publicKey, $msg, $signature) {
+	public function verify($publicKey, $msg, $signature) {
 		
 		$this->checkArrayTypes($msg, $signature, $publicKey);
 		
@@ -1226,5 +1293,28 @@ class axlsign {
 		return ($this->curve25519_sign_open($m, $sm, count($sm), $publicKey) >= 0);
 	}
 	
+	public function generateKeyPair($seed) {
+		$this->checkArrayTypes($seed);
+		if (count($seed) !== 32) throw new Exception('wrong seed length');
+		$sk = array_fill(0, 32, 0);
+		$pk = array_fill(0, 32, 0);
+
+		for ($i = 0; $i < 32; $i++) $sk[$i] = $seed[$i];
+
+		$this->crypto_scalarmult_base($pk, $sk);
+
+		// Turn secret key into the correct format.
+		$sk[0] &= 248;
+		$sk[31] &= 127;
+		$sk[31] |= 64;
+
+		// Remove sign bit from public key.
+		$pk[31] &= 127;
+
+		return array(
+			'public' => $pk,
+			'private' => $sk
+		);
+	}
 }
 
