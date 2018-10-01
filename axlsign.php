@@ -593,7 +593,7 @@ class axlsign {
 	}
 
 	protected function crypto_scalarmult_base(&$q, $n) {
-		return crypto_scalarmult($q, $n, $this->_9());
+		return $this->crypto_scalarmult($q, $n, $this->_9());
 	}
 
 	protected $K = array(
