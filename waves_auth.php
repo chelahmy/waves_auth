@@ -27,6 +27,7 @@ require_once('blake2b.php');
 require_once('keccak.php');
 require_once('base58.php');
 require_once('utils32.php');
+require_once('dictionary.php');
 
 class waves_auth {
 
@@ -120,7 +121,7 @@ class waves_auth {
 	}
 
 	// Generate Waves address from the public key.
-	function get_address($publicKey) {
+	public function get_address($publicKey) {
 		$b58 = new base58;
 		$publicKeyBytes = $b58->decode($publicKey);
 
@@ -135,4 +136,40 @@ class waves_auth {
 	
 		return $b58->encode(array_merge($rawAddress, $addressHash));
 	}
+	
+	// Generate secure random array
+	public function generate_random_array($length) {
+
+		if ($length <= 0) {
+			throw new Exception('Missing or invalid array length');
+		}
+
+		$a = openssl_random_pseudo_bytes($length);
+		$b = openssl_random_pseudo_bytes($length);
+		$result = array_fill(0, $length, 0);
+
+		for ($i = 0; $i < $length; $i++) {
+			$hash = hash("sha256", $a[$i] . $b[$i]);
+			$result[$i] = intval(substr($hash, 0, 12), 16);
+		}
+
+		return $result;
+	}
+
+	// Generate new seed
+	public function generate_new_seed($length) {
+		global $seed_dictionary;
+		
+		$random = $this->generate_random_array($length);
+		$wordCount = count($seed_dictionary);
+		$phrase = array(0, $length, 0);
+		
+		for ($i = 0; $i < $length; $i++) {
+			$wordIndex = $random[$i] % $wordCount;
+			$phrase[$i] = $seed_dictionary[$wordIndex];
+		}
+		
+		return implode(' ', $phrase);
+	}
+	
 }

@@ -74,6 +74,15 @@ echo "public key: ". $kp['publicKey'] . "<br/>";
 $ad = $wa->get_address($kp['publicKey']);
 echo 'address: ' .  $ad . '<br/><br/>';
 
+$wa = new waves_auth;
+$new_seed = $wa->generate_new_seed(15);
+echo 'new seed: (' . $new_seed . ')<br/>';
+$kp = $wa->build_key_pair($new_seed);
+echo "private key: ". $kp['privateKey'] . "<br/>";
+echo "public key: ". $kp['publicKey'] . "<br/>";
+$ad = $wa->get_address($kp['publicKey']);
+echo 'address: ' .  $ad . '<br/><br/>';
+
 // Test blake2b with predefined vectors
 $handle = fopen("blake2b-kat.txt", "r");
 
