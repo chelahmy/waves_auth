@@ -1153,6 +1153,115 @@ class axlsign {
 		$this->modL($r, $x);
 	}
 
+	// Like crypto_sign, but uses secret key directly in hash.
+	protected function crypto_sign_direct(&$sm, $m, $n, $sk) {
+		$d = array_fill(0, 64, 0); $h = array_fill(0, 64, 0); $r = array_fill(0, 64, 0);
+		$x = array_fill(0, 64, 0);
+		$p = [$this->gf(), $this->gf(), $this->gf(), $this->gf()];
+
+		for ($i = 0; $i < $n; $i++) $sm[64 + $i] = $m[$i];
+		for ($i = 0; $i < 32; $i++) $sm[32 + $i] = $sk[$i];
+
+		$this->crypto_hash($r, array_slice($sm, 32), $n+32);
+		$this->reduce($r);
+		$this->scalarbase($p, $r);
+		$this->pack($sm, $p);
+
+		for ($i = 0; $i < 32; $i++) $sm[$i + 32] = $sk[32 + $i];
+		$this->crypto_hash($h, $sm, $n + 64);
+		$this->reduce($h);
+
+		for ($i = 0; $i < 64; $i++) $x[$i] = 0;
+		for ($i = 0; $i < 32; $i++) $x[$i] = $r[$i];
+		for ($i = 0; $i < 32; $i++) {
+			for ($j = 0; $j < 32; $j++) {
+				$x[$i+$j] += $h[$i] * $sk[$j];
+			}
+		}
+
+		$p_sm = array_slice($sm, 32);
+		$this->modL($p_sm, $x);
+		for ($i = 32; $i < count($sm); $i++) $sm[$i] = $p_sm[$i - 32];
+		return $n + 64;
+	}
+
+	// Note: sm must be n+128.
+	protected function crypto_sign_direct_rnd(&$sm, $m, $n, $sk, $rnd) {
+		$d = array_fill(0, 64, 0); $h = array_fill(0, 64, 0); $r = array_fill(0, 64, 0);
+		$x = array_fill(0, 64, 0);
+		$p = [$this->gf(), $this->gf(), $this->gf(), $this->gf()];
+
+		// Hash separation.
+		$sm[0] = 0xfe;
+		for ($i = 1; $i < 32; $i++) $sm[$i] = 0xff;
+
+		// Secret key.
+		for ($i = 0; $i < 32; $i++) $sm[32 + $i] = $sk[$i];
+
+		// Message.
+		for ($i = 0; $i < $n; $i++) $sm[64 + $i] = $m[$i];
+
+		// Random suffix.
+		for ($i = 0; $i < 64; $i++) $sm[$n + 64 + $i] = $rnd[$i];
+
+		$this->crypto_hash($r, $sm, $n+128);
+		$this->reduce($r);
+		$this->scalarbase($p, $r);
+		$this->pack($sm, $p);
+
+		for ($i = 0; $i < 32; $i++) $sm[$i + 32] = $sk[32 + $i];
+		$this->crypto_hash($h, $sm, $n + 64);
+		$this->reduce($h);
+
+		// Wipe out random suffix.
+		for ($i = 0; $i < 64; $i++) $sm[$n + 64 + $i] = 0;
+
+		for ($i = 0; $i < 64; $i++) $x[$i] = 0;
+		for ($i = 0; $i < 32; $i++) $x[$i] = $r[$i];
+		for ($i = 0; $i < 32; $i++) {
+			for ($j = 0; $j < 32; $j++) {
+				$x[$i+$j] += $h[$i] * $sk[$j];
+			}
+		}
+
+		$p_sm = array_slice($sm, 32, ($n + 64) - 32);
+		$this->modL($p_sm, $x);
+		for ($i = 32; $i <= ($n + 64); $i++) $sm[$i] = $p_sm[$i - 32];
+
+		return $n + 64;
+	}
+
+	protected function curve25519_sign(&$sm, $m, $n, $sk, $opt_rnd = false) {
+		// If opt_rnd is provided, sm must have n + 128,
+		// otherwise it must have n + 64 bytes.
+
+		// Convert Curve25519 secret key into Ed25519 secret key (includes pub key).
+		$edsk = array_fill(0, 64, 0);
+		$p = [$this->gf(), $this->gf(), $this->gf(), $this->gf()];
+
+		for ($i = 0; $i < 32; $i++) $edsk[$i] = $sk[$i];
+		// Ensure private key is in the correct format.
+		$edsk[0] &= 248;
+		$edsk[31] &= 127;
+		$edsk[31] |= 64;
+
+		$this->scalarbase($p, $edsk);
+		$this->pack(array_slice($edsk, 32), $p);
+
+		// Remember sign bit.
+		$signBit = $edsk[63] & 128;
+
+		if ($opt_rnd) {
+			$smlen = $this->crypto_sign_direct_rnd($sm, $m, $n, $edsk, $opt_rnd);
+		} else {
+			$smlen = $this->crypto_sign_direct($sm, $m, $n, $edsk);
+		}
+
+		// Copy sign bit from public key into signature.
+		$sm[63] |= $signBit;
+		return $smlen;
+	}
+
 	protected function unpackneg(&$r, $p) {
 		$t = $this->gf(); $chk = $this->gf(); $num = $this->gf();
 		$den = $this->gf(); $den2 = $this->gf(); $den4 = $this->gf();
@@ -1257,6 +1366,32 @@ class axlsign {
 		foreach ($args as $arg)
 			if (!is_array($arg)) throw new Exception('expecting an array');
 	}
+
+	public function sharedKey($secretKey, $publicKey) {
+		$this->checkArrayTypes($publicKey, $secretKey);
+		if (count($publicKey) !== 32) throw new Exception('wrong public key length');
+		if (count($secretKey) !== 32) throw new Exception('wrong secret key length');
+		$sharedKey = array_fill(0, 32, 0);
+		$this->crypto_scalarmult($sharedKey, $secretKey, $publicKey);
+		return $sharedKey;
+	}
+
+	public function signMessage($secretKey, $msg, $opt_random = false) {
+		$this->checkArrayTypes($msg, $secretKey);
+		if (count($secretKey) !== 32) throw new Exception('wrong secret key length');
+		$msg_len = count($msg);
+		if ($opt_random) {
+			$this->checkArrayTypes($opt_random);
+			if (count($opt_random) !== 64) throw new Exception('wrong random data length');
+			$buf = array_fill(0, 128 + $msg_len, 0);
+			$this->curve25519_sign($buf, $msg, $msg_len, $secretKey, $opt_random);
+			return array_slice($buf, 0, 64 + $msg_len);
+		} else {
+			$signedMsg = array_fill(0, 64 + $msg_len, 0);
+			$this->curve25519_sign($signedMsg, $msg, $msg_len, $secretKey);
+			return $signedMsg;
+		}
+	}
 	
 	public function openMessage($publicKey, $signedMsg) {
 	
@@ -1275,6 +1410,21 @@ class axlsign {
 		
 		return $m;
 	}	
+
+	public function sign($secretKey, $msg, $opt_random = false) {
+		$this->checkArrayTypes($secretKey, $msg);
+		if (count($secretKey) !== 32) throw new Exception('wrong secret key length');
+		if ($opt_random) {
+			$this->checkArrayTypes($opt_random);
+			if (count($opt_random) !== 64) throw new Exception('wrong random data length');
+		}
+		$msg_len = count($msg);
+		$buf = array_fill(($opt_random ? 128 : 64) + $msg_len);
+		$this->curve25519_sign($buf, $msg, $msg_len, $secretKey, $opt_random);
+		$signature = array_fill(0, 64, 0);
+		for ($i = 0; $i < count($signature); $i++) $signature[$i] = $buf[$i];
+		return $signature;
+	}
 	
 	public function verify($publicKey, $msg, $signature) {
 		
