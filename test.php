@@ -74,6 +74,18 @@ echo "public key: ". $kp['publicKey'] . "<br/>";
 $ad = $wa->get_address($kp['publicKey']);
 echo 'address: ' .  $ad . '<br/><br/>';
 
+$host = "cryptobubbles.club";
+$data = "bubble up";
+$sig = $wa->sign($kp['privateKey'], $host, $data);
+echo "signature: " . $sig . "<br/>";
+
+if ($wa->verify($kp['publicKey'], $sig, $host, $data))
+	echo "OK: The signature is valid<br/>";
+else
+	echo "Not OK: The signature is NOT valid<br/>";
+
+echo "<br/>";
+
 $wa = new waves_auth;
 $new_seed = $wa->generate_new_seed(15);
 echo 'new seed: (' . $new_seed . ')<br/>';
@@ -82,6 +94,16 @@ echo "private key: ". $kp['privateKey'] . "<br/>";
 echo "public key: ". $kp['publicKey'] . "<br/>";
 $ad = $wa->get_address($kp['publicKey']);
 echo 'address: ' .  $ad . '<br/><br/>';
+
+$sig = $wa->sign($kp['privateKey'], $host, $data);
+echo "signature: " . $sig . "<br/>";
+
+if ($wa->verify($kp['publicKey'], $sig, $host, $data))
+	echo "OK: The signature is valid<br/>";
+else
+	echo "Not OK: The signature is NOT valid<br/>";
+
+echo "<br/>";
 
 // Test blake2b with predefined vectors
 $handle = fopen("blake2b-kat.txt", "r");
