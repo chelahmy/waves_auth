@@ -16,8 +16,11 @@ Waves auth verification steps:
 ~~~php
 require_once('waves_auth.php');
 
+// Caller data
 $host = 'demo.wavesplatform.com';
 $data = 'Please visit blindtalk.net and jualla.com';
+
+// Waves auth response
 $sig = '2XbDzTvKJp4LxNzGJDwvF7rtYRcL8G5pphj9M64sHCNekt5HwYaXmE7PRJFWfavzRU5wdVYEwtJNyeLTnrWFTHoL';
 $puk = 'CbDnhryczrZRpxDxmvwZndVukYkGV9H17hLXGRKJ8fyx';
 $addr = '3P9pSqybo9S7tBu83KNG8HK72TZ6dR4DkZ8';
@@ -92,4 +95,4 @@ $wa = new waves_auth;
 $sig = $wa->sign($pri, $host, $data);
 
 echo "signature: " . $sig . "<br/>";
-~~
+~~~
