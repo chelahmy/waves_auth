@@ -1188,7 +1188,7 @@ class axlsign {
 	// Note: sm must be n+128.
 	protected function crypto_sign_direct_rnd(&$sm, $m, $n, $sk, $rnd) {
 		$d = array_fill(0, 64, 0); $h = array_fill(0, 64, 0); $r = array_fill(0, 64, 0);
-		$x = array_fill(0, 64, 0);
+		$x = array_fill(0, 64, 0.0);
 		$p = [$this->gf(), $this->gf(), $this->gf(), $this->gf()];
 
 		// Hash separation.
@@ -1226,7 +1226,7 @@ class axlsign {
 
 		$p_sm = array_slice($sm, 32, ($n + 64) - 32);
 		$this->modL($p_sm, $x);
-		for ($i = 32; $i <= ($n + 64); $i++) $sm[$i] = $p_sm[$i - 32];
+		for ($i = 32; $i < ($n + 64); $i++) $sm[$i] = $p_sm[$i - 32];
 
 		return $n + 64;
 	}
@@ -1246,7 +1246,9 @@ class axlsign {
 		$edsk[31] |= 64;
 
 		$this->scalarbase($p, $edsk);
-		$this->pack(array_slice($edsk, 32), $p);
+		$p_edsk = array_slice($edsk, 32);
+		$this->pack($p_edsk, $p);
+		for ($i = 32; $i < count($edsk); $i++) $edsk[$i] = $p_edsk[$i - 32]; 
 
 		// Remember sign bit.
 		$signBit = $edsk[63] & 128;
@@ -1419,10 +1421,10 @@ class axlsign {
 			if (count($opt_random) !== 64) throw new Exception('wrong random data length');
 		}
 		$msg_len = count($msg);
-		$buf = array_fill(($opt_random ? 128 : 64) + $msg_len);
+		$buf = array_fill(0, ($opt_random ? 128 : 64) + $msg_len, 0);
 		$this->curve25519_sign($buf, $msg, $msg_len, $secretKey, $opt_random);
 		$signature = array_fill(0, 64, 0);
-		for ($i = 0; $i < count($signature); $i++) $signature[$i] = $buf[$i];
+		for ($i = 0; $i < 64; $i++) $signature[$i] = $buf[$i];
 		return $signature;
 	}
 	
