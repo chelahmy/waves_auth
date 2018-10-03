@@ -31,17 +31,36 @@ require_once('dictionary.php');
 
 class waves_auth {
 
+	protected function pack_msg($host, $data) {
+		return array_merge(
+			str2byteswl('WavesWalletAuthentication'),
+			str2byteswl($host),
+			str2byteswl($data)
+			);
+	}
+	
+	// Sign the data.
+	// prik: private key
+	// host: the domain name part of the referrer host url
+	// data: the data to be signed
+	public function sign($prik, $host, $data) {
+		$m = $this->pack_msg($host, $data);
+
+		$b58 = new base58;
+		$p = $b58->decode($prik);
+
+		$a = new axlsign;
+		$opt_random = $this->generate_random_array(64);
+		return $b58->encode($a->sign($p, $m, $opt_random));
+	}
+	
 	// Verify signature to the data.
 	// pubk: public key
 	// sig: signature
 	// host: the domain name part of the referrer host url
 	// data: the data submited by the referrer
 	public function verify($pubk, $sig, $host, $data) {
-		$m = array_merge(
-			str2byteswl('WavesWalletAuthentication'),
-			str2byteswl($host),
-			str2byteswl($data)
-			);
+		$m = $this->pack_msg($host, $data);
 
 		$b58 = new base58;
 
