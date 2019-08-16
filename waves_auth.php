@@ -30,6 +30,25 @@ require_once('utils32.php');
 require_once('dictionary.php');
 
 class waves_auth {
+	
+	// Generate secure random array
+	public function generate_random_array($length) {
+
+		if ($length <= 0) {
+			throw new Exception('Missing or invalid array length');
+		}
+
+		$a = openssl_random_pseudo_bytes($length);
+		$b = openssl_random_pseudo_bytes($length);
+		$result = array_fill(0, $length, 0);
+
+		for ($i = 0; $i < $length; $i++) {
+			$hash = hash("sha256", $a[$i] . $b[$i]);
+			$result[$i] = intval(substr($hash, 0, 12), 16);
+		}
+
+		return $result;
+	}
 
 	protected function pack_msg($host, $data) {
 		return array_merge(
@@ -39,10 +58,11 @@ class waves_auth {
 			);
 	}
 	
-	// Sign the data.
-	// prik: private key
+	// Sign the authentication data.
+	// prik: private key (base58)
 	// host: the domain name part of the referrer host url
 	// data: the data to be signed
+	// Return signature in base58
 	public function sign($prik, $host, $data) {
 		$m = $this->pack_msg($host, $data);
 
@@ -54,9 +74,22 @@ class waves_auth {
 		return $b58->encode($a->sign($p, $m, $opt_random));
 	}
 	
-	// Verify signature to the data.
-	// pubk: public key
-	// sig: signature
+	// Sign raw data.
+	// prik: private key (base58)
+	// data: the data to be signed (byte array)
+	// Return signature in base58
+	public function sign_raw($prik, $data) {
+		$b58 = new base58;
+		$p = $b58->decode($prik);
+
+		$a = new axlsign;
+		$opt_random = $this->generate_random_array(64);
+		return $b58->encode($a->sign($p, $data, $opt_random));
+	}
+	
+	// Verify signature to the authentication data.
+	// pubk: public key (base58)
+	// sig: signature (base58)
 	// host: the domain name part of the referrer host url
 	// data: the data submited by the referrer
 	public function verify($pubk, $sig, $host, $data) {
@@ -70,6 +103,21 @@ class waves_auth {
 		$a = new axlsign;
 	
 		return $a->verify($p, $m, $s);
+	}
+	
+	// Verify signature to raw data.
+	// pubk: public key (base58)
+	// sig: signature (base58)
+	// data: the data to be verified (byte array)
+	public function verify_raw($pubk, $sig, $data) {
+		$b58 = new base58;
+
+		$p = $b58->decode($pubk);
+		$s = $b58->decode($sig);
+
+		$a = new axlsign;
+	
+		return $a->verify($p, $data, $s);
 	}
 
 	protected function hash_chain($input) {
@@ -154,25 +202,6 @@ class waves_auth {
 		$addressHash = array_slice($this->hash_chain($rawAddress),0, 4);
 	
 		return $b58->encode(array_merge($rawAddress, $addressHash));
-	}
-	
-	// Generate secure random array
-	public function generate_random_array($length) {
-
-		if ($length <= 0) {
-			throw new Exception('Missing or invalid array length');
-		}
-
-		$a = openssl_random_pseudo_bytes($length);
-		$b = openssl_random_pseudo_bytes($length);
-		$result = array_fill(0, $length, 0);
-
-		for ($i = 0; $i < $length; $i++) {
-			$hash = hash("sha256", $a[$i] . $b[$i]);
-			$result[$i] = intval(substr($hash, 0, 12), 16);
-		}
-
-		return $result;
 	}
 
 	// Generate new seed
