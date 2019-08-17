@@ -63,7 +63,8 @@ function toHex($bytes) {
 }
 
 function uint32ToHex($val) {
-	return substr(dechex(4294967296 + $val), 1);
+	$val &= 0xFFFFFFFF;
+	return substr(dechex(0x100000000 + $val), 1);
 }
 
 function intval32($value)
